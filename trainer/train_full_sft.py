@@ -175,11 +175,12 @@ if __name__ == "__main__":
         wandb.init(project=args.wandb_project, name=args.wandb_run_name)
     else:
         wandb = None
-
+    # 初始化模型
     model, tokenizer = init_model(lm_config)
-
+    # 加载数据
     train_ds = SFTDataset(args.data_path, tokenizer, max_length=args.max_seq_len)
     train_sampler = DistributedSampler(train_ds) if ddp else None
+    # 初始化DataLoader
     train_loader = DataLoader(
         train_ds,
         batch_size=args.batch_size,
@@ -189,8 +190,9 @@ if __name__ == "__main__":
         num_workers=args.num_workers,
         sampler=train_sampler
     )
-
+    # 使用梯度缩放器进行混合精度的计算
     scaler = torch.cuda.amp.GradScaler(enabled=(args.dtype in ['float16', 'bfloat16']))
+    # 设置优化算法AdamW
     optimizer = optim.AdamW(model.parameters(), lr=args.learning_rate)
 
     if ddp:
