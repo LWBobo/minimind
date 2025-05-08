@@ -82,12 +82,12 @@ def train_epoch(epoch, wandb):
                            "epoch_Time": spend_time / (step + 1) * iter_per_epoch // 60 - spend_time // 60})
 
         if (step + 1) % args.save_interval == 0 and (not ddp or dist.get_rank() == 0):
-            model.eval()
+            model.eval()    # 将模型设置为评估模式
             lora_save_path = f'{args.save_dir}/lora/{args.lora_name}_{lm_config.hidden_size}.pth'
             os.makedirs(os.path.dirname(lora_save_path), exist_ok=True)
             # 【区别1】只保存lora权重即可
             save_lora(model, lora_save_path)
-            model.train()
+            model.train()   # 重新将模型设置为训练模式
 
 
 def init_model(lm_config):
@@ -201,6 +201,7 @@ if __name__ == "__main__":
         sampler=train_sampler
     )
 
+    # 使用梯度缩放器进行混合精度的计算
     scaler = torch.cuda.amp.GradScaler(enabled=(args.dtype in ['float16', 'bfloat16']))
     iter_per_epoch = len(train_loader)
 

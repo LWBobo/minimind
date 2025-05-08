@@ -133,6 +133,7 @@ class Attention(nn.Module):
         self.n_local_kv_heads = self.num_key_value_heads
         self.n_rep = self.n_local_heads // self.n_local_kv_heads
         self.head_dim = args.hidden_size // args.num_attention_heads
+        # Q,K,V ，同时指定注意力机制的多个头，
         self.q_proj = nn.Linear(args.hidden_size, args.num_attention_heads * self.head_dim, bias=False)
         self.k_proj = nn.Linear(args.hidden_size, self.num_key_value_heads * self.head_dim, bias=False)
         self.v_proj = nn.Linear(args.hidden_size, self.num_key_value_heads * self.head_dim, bias=False)
@@ -340,20 +341,37 @@ class MiniMindBlock(nn.Module):
         self.num_attention_heads = config.num_attention_heads
         self.hidden_size = config.hidden_size
         self.head_dim = config.hidden_size // config.num_attention_heads
+        # 注意力机制
         self.self_attn = Attention(config)
 
         self.layer_id = layer_id
+        # 输入归一化层，使用 RMSNorm（均方根归一化）对输入进行处理
         self.input_layernorm = RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
+        # 注意力后的归一化层，同样使用 RMSNorm
         self.post_attention_layernorm = RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
+        # 前馈神经网络 。MLP 是 Multilayer Perceptron（多层感知机） 的缩写。mlp 参数或变量通常是 前馈神经网络模块的实例或配置。
+        # 如果配置中 `use_moe` 为 False，使用普通的 FeedForward；
+        # 如果配置中 `use_moe` 为 True，使用 Mixture of Experts（专家模型，MOE）版本的前馈网络
         self.mlp = FeedForward(config) if not config.use_moe else MOEFeedForward(config)
 
+    # 前向传播函数，定义了 MiniMindBlock 的计算逻辑
     def forward(self, hidden_states, position_embeddings, past_key_value=None, use_cache=False, attention_mask=None):
+
+        # 保存输入的 hidden_states 作为残差连接的一部分
         residual = hidden_states
+
+        # 通过自注意力机制计算新的 hidden_states 和可能的缓存值 present_key_value
         hidden_states, present_key_value = self.self_attn(
-            self.input_layernorm(hidden_states), position_embeddings,
-            past_key_value, use_cache, attention_mask
+            self.input_layernorm(hidden_states), # 对输入进行 RMS 归一化
+            position_embeddings,                 # 位置嵌入，用于引入位置信息
+            past_key_value,                      # 用于缓存之前的注意力 key 和 value
+            use_cache,                           # 是否启用缓存机制（通常用于推理阶段）
+            attention_mask
         )
+        # 将注意力输出与残差连接（residual connection）相加，增强梯度传播
         hidden_states += residual
+        # 对注意力输出再次进行归一化处理（post_attention_layernorm）
+        # 然后通过前馈网络（MLP），并与残差连接相加
         hidden_states = hidden_states + self.mlp(self.post_attention_layernorm(hidden_states))
         return hidden_states, present_key_value
 
@@ -363,8 +381,10 @@ class MiniMindModel(nn.Module):
         super().__init__()
         self.config = config
         self.vocab_size, self.num_hidden_layers = config.vocab_size, config.num_hidden_layers
+        # 1. Embedding层
         self.embed_tokens = nn.Embedding(config.vocab_size, config.hidden_size)
         self.dropout = nn.Dropout(config.dropout)
+        # 2.  layers层，调用MiniMindBlock类进行构造
         self.layers = nn.ModuleList([MiniMindBlock(l, config) for l in range(self.num_hidden_layers)])
         self.norm = RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
 
@@ -418,6 +438,7 @@ class MiniMindForCausalLM(PreTrainedModel, GenerationMixin):
     def __init__(self, config: MiniMindConfig = None):
         self.config = config or MiniMindConfig()
         super().__init__(self.config)
+        # 调用MiniMindModel，根据config初始化模型
         self.model = MiniMindModel(self.config)
         self.lm_head = nn.Linear(self.config.hidden_size, self.config.vocab_size, bias=False)
         self.model.embed_tokens.weight = self.lm_head.weight
