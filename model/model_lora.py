@@ -7,8 +7,8 @@ class LoRA(nn.Module):
     def __init__(self, in_features, out_features, rank):
         super().__init__()
         self.rank = rank  # LoRA的秩（rank），控制低秩矩阵的大小
-        self.A = nn.Linear(in_features, rank, bias=False)  # 低秩矩阵A
-        self.B = nn.Linear(rank, out_features, bias=False)  # 低秩矩阵B
+        self.A = nn.Linear(in_features, rank, bias=False)  # 低秩矩阵A  512×8
+        self.B = nn.Linear(rank, out_features, bias=False)  # 低秩矩阵B 8×512
         # 矩阵A高斯初始化 均值为0，标准差为0.02.
         self.A.weight.data.normal_(mean=0.0, std=0.02)
         # 矩阵B全0初始化
@@ -51,6 +51,7 @@ def apply_lora(model, rank=8):
                 # 1. 原始线性层（layer1）的输出。
                 # 2. LoRA 模块（layer2）的输出。
                 # 这两个部分的输出相加，形成最终输出。
+                ### 这里将两个参数进行简单的相加，普遍做法是通过lora_alpha超参数来控制它的缩放程度。###
                 return layer1(x) + layer2(x)
 
             module.forward = forward_with_lora  # 将线性层的 forward 方法替换为新的 forward_with_lora 方法。

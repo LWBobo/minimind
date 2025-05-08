@@ -33,18 +33,24 @@ def get_lr(current_step, total_steps, lr):
 
 # 代码和full_sft「几乎」一致
 def train_epoch(epoch, wandb):
+    # 定义损失函数，使用交叉熵损失（不进行自动归约，逐元素计算损失）。
     loss_fct = nn.CrossEntropyLoss(reduction='none')
     start_time = time.time()
     for step, (X, Y, loss_mask) in enumerate(train_loader):
         X = X.to(args.device)
         Y = Y.to(args.device)
         loss_mask = loss_mask.to(args.device)
+
+        # 动态调整学习率：
+        # 使用自定义的 `get_lr` 函数，根据当前步数和总步数计算学习率。
         lr = get_lr(epoch * iter_per_epoch + step, args.epochs * iter_per_epoch, args.learning_rate)
         for param_group in optimizer.param_groups:
             param_group['lr'] = lr
 
         with ctx:
             res = model(X)
+
+            # 计算交叉熵损失
             loss = loss_fct(
                 res.logits.view(-1, res.logits.size(-1)),
                 Y.view(-1)
@@ -55,14 +61,20 @@ def train_epoch(epoch, wandb):
 
         scaler.scale(loss).backward()
 
+        # 如果当前 step 达到了梯度累积步数，进行参数更新。
         if (step + 1) % args.accumulation_steps == 0:
+
+            # 将梯度从缩放状态还原，以便进行梯度裁剪。
             scaler.unscale_(optimizer)
+
+            # 对 LoRA 模块的参数进行梯度裁剪，防止梯度爆炸。
+            # lora_params 是 LoRA 模块中的可训练参数集合。
             torch.nn.utils.clip_grad_norm_(lora_params, args.grad_clip)
 
-            scaler.step(optimizer)
-            scaler.update()
+            scaler.step(optimizer)  # 使用缩放器执行优化器的 `step` 操作，更新模型参数，此时lora_params中的B矩阵被赋值。
+            scaler.update()         # 更新缩放器的状态，调整损失缩放因子。
 
-            optimizer.zero_grad(set_to_none=True)
+            optimizer.zero_grad(set_to_none=True)       # 清空优化器的梯度，为下一步计算做准备。参数 `set_to_none=True` 可减少内存占用。
 
         if step % args.log_interval == 0:
             spend_time = time.time() - start_time
@@ -134,8 +146,8 @@ if __name__ == "__main__":
     parser.add_argument('--num_hidden_layers', default=8, type=int)
     parser.add_argument('--max_seq_len', default=512, type=int)
     parser.add_argument('--use_moe', default=False, type=bool)
-    parser.add_argument("--data_path", type=str, default="../dataset/lora_medical.jsonl")
-    parser.add_argument("--lora_name", type=str, default="lora_medical", help="根据任务保存成lora_(英文/医学/心理...)")
+    parser.add_argument("--data_path", type=str, default="../dataset/lora_compiler.jsonl")
+    parser.add_argument("--lora_name", type=str, default="lora_compiler", help="根据任务保存成lora_(英文/医学/心理...)")
     args = parser.parse_args()
 
     lm_config = MiniMindConfig(hidden_size=args.hidden_size, num_hidden_layers=args.num_hidden_layers,
