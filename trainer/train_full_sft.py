@@ -29,29 +29,51 @@ def Logger(content):
 def get_lr(current_step, total_steps, lr):
     return lr / 10 + 0.5 * lr * (1 + math.cos(math.pi * current_step / total_steps))
 
-
+ # 定义一个函数，用于训练模型的单个 epoch。
+    # 参数：
+    # - epoch: 当前的 epoch 索引（从 0 开始）。
+    # - wandb: 用于日志记录的 Weights and Biases 库的实例（如果启用）。
 def train_epoch(epoch, wandb):
+    # 定义损失函数，这里是交叉熵损失函数（不进行任何自动归约）。
     loss_fct = nn.CrossEntropyLoss(reduction='none')
     start_time = time.time()
     for step, (X, Y, loss_mask) in enumerate(train_loader):
+        # 遍历训练数据加载器 train_loader，每次迭代获取一批数据。
+        # - X: 输入特征（通常是 token IDs）。
+        # - Y: 标签（通常是目标 token IDs）。
+        # - loss_mask: 损失掩码，标记哪些位置需要计算损失。
         X = X.to(args.device)
         Y = Y.to(args.device)
         loss_mask = loss_mask.to(args.device)
+
+        # 通过自定义学习率调度函数 get_lr 计算当前步的学习率。
+        # 参数：
+        # - 当前全局步数 = 当前 epoch 的步数 + 当前 step。
+        # - 总步数 = 总 epoch 数 * 每个 epoch 的迭代数。
+        # - args.learning_rate: 初始学习率。
         lr = get_lr(epoch * iter_per_epoch + step, args.epochs * iter_per_epoch, args.learning_rate)
         for param_group in optimizer.param_groups:
-            param_group['lr'] = lr
+            param_group['lr'] = lr   # 更新优化器中每个参数组的学习率。
 
         with ctx:
             res = model(X)
+
+            # 计算交叉熵损失：
+            # - 将 logits 展平为 (batch_size * seq_len, vocab_size)。
+            # - 将目标 Y 展平为 (batch_size * seq_len)。
+            # - 计算每个位置的损失，并 reshape 回 (batch_size, seq_len)。
             loss = loss_fct(
                 res.logits.view(-1, res.logits.size(-1)),
                 Y.view(-1)
             ).view(Y.size())
 
+            # 使用损失掩码 loss_mask 筛选有效的 token 的损失，并对所有有效 token 求平均。
             loss = (loss * loss_mask).sum() / loss_mask.sum()
             loss += res.aux_loss
+            # 将损失除以累积步数（梯度累积），以平衡梯度的规模。
             loss = loss / args.accumulation_steps
 
+        # 使用梯度缩放（scaler.scale）对损失进行缩放后计算反向传播的梯度。
         scaler.scale(loss).backward()
 
         if (step + 1) % args.accumulation_steps == 0:
@@ -65,6 +87,7 @@ def train_epoch(epoch, wandb):
 
         if step % args.log_interval == 0:
             spend_time = time.time() - start_time
+            # 进行日志输出
             Logger(
                 'Epoch:[{}/{}]({}/{}) loss:{:.3f} lr:{:.12f} epoch_Time:{}min:'.format(
                     epoch + 1,
@@ -95,6 +118,7 @@ def train_epoch(epoch, wandb):
 
 def init_model(lm_config):
     tokenizer = AutoTokenizer.from_pretrained('../model')
+    # 初始化模型，调用模型类
     model = MiniMindForCausalLM(lm_config)
     moe_path = '_moe' if lm_config.use_moe else ''
     ckp = f'{args.save_dir}/pretrain_{lm_config.hidden_size}{moe_path}.pth'
@@ -175,7 +199,6 @@ if __name__ == "__main__":
         wandb.init(project=args.wandb_project, name=args.wandb_run_name)
     else:
         wandb = None
-
     # 初始化模型
     model, tokenizer = init_model(lm_config)
     # 加载数据
