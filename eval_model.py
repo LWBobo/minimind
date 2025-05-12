@@ -120,6 +120,7 @@ def main():
                         help="0: 预训练模型，1: SFT-Chat模型，2: RLHF-Chat模型，3: Reason模型，4: RLAIF-Chat模型")
     args = parser.parse_args()
 
+    model: MiniMindForCausalLM
     model, tokenizer = init_model(args)
 
     prompts = get_prompt_datas(args)
@@ -128,10 +129,14 @@ def main():
 
     messages = []
     for idx, prompt in enumerate(prompts if test_mode == 0 else iter(lambda: input('👶: '), '')):
-        setup_seed(random.randint(0, 2048))
+
+        setup_seed(random.randint(0, 2048))     # 设置随机种子，用于控制生成的随机性，确保每次生成的结果不同。
         # setup_seed(2025)  # 如需固定每次输出则换成【固定】的随机种子
         if test_mode == 0: print(f'👶: {prompt}')
 
+        # 如果 `args.history_cnt` 设置了对话历史的长度限制，则保留最近 `args.history_cnt` 条历史记录。
+        # 如果未设置（即 `args.history_cnt == 0`），对话历史为空。
+        # `messages` 是当前会话的对话历史，格式为 [{"role": "user/assistant", "content": "内容"}]。
         messages = messages[-args.history_cnt:] if args.history_cnt else []
         messages.append({"role": "user", "content": prompt})
 
@@ -141,6 +146,9 @@ def main():
             add_generation_prompt=True
         ) if args.model_mode != 0 else (tokenizer.bos_token + prompt)
 
+        # 使用分词器 `tokenizer` 对 `new_prompt` 进行分词处理，返回张量格式（PyTorch 的 `pt` 格式）。
+        # - `truncation=True` 确保输入长度不会超过模型的最大限制。
+        # - 将分词后的张量移动到指定的计算设备（如 GPU）。
         inputs = tokenizer(
             new_prompt,
             return_tensors="pt",
