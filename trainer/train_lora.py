@@ -173,7 +173,7 @@ if __name__ == "__main__":
         # 同时设置 CUDA 的随机种子
         torch.cuda.manual_seed(base_seed + rank)
 
-    args.wandb_run_name = f"MiniMind-Lora-SFT-Epoch-{args.epochs}-BatchSize-{args.batch_size}-LearningRate-{args.learning_rate}"
+    args.wandb_run_name = f"MiniMind-Lora-SFT-Epoch-{args.epochs}-BatchSize-{args.batch_size}-LearningRate-{args.learning_rate}-Hidden_size-{args.hidden_size}-Num_hidden_layers-{args.num_hidden_layers}"
     if args.use_wandb and (not ddp or ddp_local_rank == 0):
         import wandb
 
