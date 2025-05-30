@@ -112,7 +112,8 @@ def init_model(lm_config):
     tokenizer = AutoTokenizer.from_pretrained('../model')
     model = MiniMindForCausalLM(lm_config)
     moe_path = '_moe' if lm_config.use_moe else ''
-    ckp = f'{args.save_dir}/rlhf_{lm_config.hidden_size}{moe_path}.pth'
+    #ckp = f'{args.save_dir}/rlhf_{lm_config.hidden_size}{moe_path}.pth'
+    ckp = f'{args.save_dir}/full_sft_{lm_config.hidden_size}{moe_path}.pth'     #从sft阶段继续训练
     state_dict = torch.load(ckp, map_location=args.device)
     model.load_state_dict(state_dict, strict=False)
     Logger(f'LLM总参数量：{sum(p.numel() for p in model.parameters() if p.requires_grad) / 1e6:.3f} 百万')
@@ -141,7 +142,7 @@ if __name__ == "__main__":
     parser.add_argument("--device", type=str, default="cuda:0" if torch.cuda.is_available() else "cpu")
     parser.add_argument("--dtype", type=str, default="bfloat16")
     parser.add_argument("--use_wandb", action="store_true")
-    parser.add_argument("--wandb_project", type=str, default="MiniMind-Full-SFT")
+    parser.add_argument("--wandb_project", type=str, default="MiniMind-Distill-Reasoning")
     parser.add_argument("--num_workers", type=int, default=1)
     parser.add_argument("--ddp", action="store_true")
     parser.add_argument("--accumulation_steps", type=int, default=1)
