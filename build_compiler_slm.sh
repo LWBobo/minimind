@@ -5,11 +5,12 @@ PARAMETER1="--hidden_size=384 --num_hidden_layers=16 --max_seq_len=1024"
 PARAMETER2="--hidden_size=512 --num_hidden_layers=8 --max_seq_len=1024"
 PARAMETER3="--hidden_size=768 --num_hidden_layers=16 --max_seq_len=1024"
 PARAMETER4="--hidden_size=256 --num_hidden_layers=20 --batch_size=16  --max_seq_len=2048"
+PARAMETER5="--hidden_size=256 --num_hidden_layers=12 --batch_size=48  --max_seq_len=1024"
 
 #PARAMETER="${PARAMETER1}  --use_wandb"
 #PARAMETER="${PARAMETER2}  --use_wandb"
 #PARAMETER="${PARAMETER3}  --use_wandb"
-PARAMETER="${PARAMETER4}  --use_wandb"
+PARAMETER="${PARAMETER5}  "
 
 #预训练
 python train_pretrain.py --epochs=2  ${PARAMETER}  --data_path="../dataset/pretrain_compiler.jsonl"
