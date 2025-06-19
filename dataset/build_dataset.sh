@@ -23,7 +23,7 @@ sed -n '240000,280000p' sft_1024.jsonl >> sft_compiler_1024.jsonl
 head -n 30000 qa_datas_new.jsonl >> sft_compiler_1024.jsonl
 
 #lora微调数据
-cat qa_datas_new.jsonl >> lora_compiler.jsonl
+cat qa_datas_new.jsonl > lora_compiler.jsonl
 
 #reasoning微调数据
 cp qa_think_datas_new.jsonl reasoning_compiler_2048.jsonl
