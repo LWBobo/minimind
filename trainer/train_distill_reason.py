@@ -96,7 +96,7 @@ def train_epoch(epoch, wandb):
         if (step + 1) % args.save_interval == 0 and (not ddp or dist.get_rank() == 0):
             model.eval()
             moe_path = '_moe' if lm_config.use_moe else ''
-            ckp = f'{args.save_dir}/reason_{lm_config.hidden_size}{moe_path}.pth'
+            ckp = f'{args.save_dir}/reason_{lm_config.hidden_size}_{lm_config.num_hidden_layers}{moe_path}.pth'
 
             if isinstance(model, torch.nn.parallel.DistributedDataParallel):
                 state_dict = model.module.state_dict()
@@ -113,7 +113,7 @@ def init_model(lm_config):
     model = MiniMindForCausalLM(lm_config)
     moe_path = '_moe' if lm_config.use_moe else ''
     #ckp = f'{args.save_dir}/rlhf_{lm_config.hidden_size}{moe_path}.pth'
-    ckp = f'{args.save_dir}/full_sft_{lm_config.hidden_size}{moe_path}.pth'     #从sft阶段继续训练
+    ckp = f'{args.save_dir}/full_sft_{lm_config.hidden_size}_{lm_config.num_hidden_layers}{moe_path}.pth'     #从sft阶段继续训练
     state_dict = torch.load(ckp, map_location=args.device)
     model.load_state_dict(state_dict, strict=False)
     Logger(f'LLM总参数量：{sum(p.numel() for p in model.parameters() if p.requires_grad) / 1e6:.3f} 百万')
@@ -137,7 +137,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="MiniMind Distill Reasoning")
     parser.add_argument("--out_dir", type=str, default="../out")
     parser.add_argument("--epochs", type=int, default=1)
-    parser.add_argument("--batch_size", type=int, default=8)
+    parser.add_argument("--batch_size", type=int, default=16)
     parser.add_argument("--learning_rate", type=float, default=1e-6)
     parser.add_argument("--device", type=str, default="cuda:0" if torch.cuda.is_available() else "cpu")
     parser.add_argument("--dtype", type=str, default="bfloat16")
@@ -148,14 +148,14 @@ if __name__ == "__main__":
     parser.add_argument("--accumulation_steps", type=int, default=1)
     parser.add_argument("--grad_clip", type=float, default=1.0)
     parser.add_argument("--warmup_iters", type=int, default=0)
-    parser.add_argument("--log_interval", type=int, default=1)
+    parser.add_argument("--log_interval", type=int, default=25)
     parser.add_argument("--save_interval", type=int, default=50)
     parser.add_argument('--local_rank', type=int, default=-1)
     parser.add_argument('--hidden_size', default=512, type=int)
     parser.add_argument('--num_hidden_layers', default=8, type=int)
-    parser.add_argument('--max_seq_len', default=1024, type=int)
+    parser.add_argument('--max_seq_len', default=2048, type=int)
     parser.add_argument('--use_moe', default=False, type=bool)
-    parser.add_argument("--data_path", type=str, default="../dataset/r1_mix_1024.jsonl")
+    parser.add_argument("--data_path", type=str, default="../dataset/reasoning_compiler_2048.jsonl")
 
     args = parser.parse_args()
 

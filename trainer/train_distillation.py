@@ -136,7 +136,7 @@ def train_epoch(epoch, wandb, alpha=0.0, temperature=1.0):
         if (step + 1) % args.save_interval == 0 and (not ddp or dist.get_rank() == 0):
             model.eval()
             moe_path = '_moe' if lm_config_student.use_moe else ''
-            ckp = f'{args.save_dir}/full_dist_{lm_config_student.hidden_size}{moe_path}.pth'
+            ckp = f'{args.save_dir}/full_dist_{lm_config_student.hidden_size}_{args.num_hidden_layers}{moe_path}.pth'
             if isinstance(model, torch.nn.parallel.DistributedDataParallel):
                 state_dict = model.module.state_dict()
             else:
@@ -162,7 +162,7 @@ def init_student_model(lm_config):
 def init_teacher_model(lm_config):
     model = MiniMindForCausalLM(lm_config)
     moe_path = '_moe' if lm_config.use_moe else ''
-    ckp = f'{args.save_dir}/full_sft_{lm_config.hidden_size}{moe_path}.pth'
+    ckp = f'{args.save_dir}/full_sft_{lm_config.hidden_size}_{args.num_hidden_layers}{moe_path}.pth'
     state_dict = torch.load(ckp, map_location=args.device)
     model.load_state_dict(state_dict, strict=False)
     Logger(f'教师模型(LLM)总参数量：{sum(p.numel() for p in model.parameters() if p.requires_grad) / 1e6:.3f} 百万')
@@ -197,11 +197,11 @@ if __name__ == "__main__":
     parser.add_argument("--accumulation_steps", type=int, default=1)
     parser.add_argument("--grad_clip", type=float, default=1.0)
     parser.add_argument("--warmup_iters", type=int, default=0)
-    parser.add_argument("--log_interval", type=int, default=100)
+    parser.add_argument("--log_interval", type=int, default=50)
     parser.add_argument("--save_interval", type=int, default=100)
     parser.add_argument("--max_seq_len", type=int, default=512)
     parser.add_argument('--local_rank', type=int, default=-1)
-    parser.add_argument("--data_path", type=str, default="../dataset/sft_xxx.jsonl")
+    parser.add_argument("--data_path", type=str, default="../dataset/sft_compiler_1024.jsonl")
 
     args = parser.parse_args()
     # 定义学生模型和教师模型

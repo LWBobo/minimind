@@ -14,7 +14,7 @@ def init_model(args):
     if args.load == 0:
         moe_path = '_moe' if args.use_moe else ''
         modes = {0: 'pretrain', 1: 'full_sft', 2: 'rlhf', 3: 'reason', 4: 'grpo'}
-        ckp = f'./{args.out_dir}/{modes[args.model_mode]}_{args.hidden_size}{moe_path}.pth'
+        ckp = f'./{args.out_dir}/{modes[args.model_mode]}_{args.hidden_size}_{args.num_hidden_layers}{moe_path}.pth'
 
         model = MiniMindForCausalLM(MiniMindConfig(
             hidden_size=args.hidden_size,
@@ -26,7 +26,7 @@ def init_model(args):
 
         if args.lora_name != 'None':
             apply_lora(model)
-            load_lora(model, f'./{args.out_dir}/lora/{args.lora_name}_{args.hidden_size}.pth')
+            load_lora(model, f'./{args.out_dir}/lora/{args.lora_name}_{args.hidden_size}_{args.num_hidden_layers}.pth')
     else:
         transformers_model_path = './MiniMind2'
         tokenizer = AutoTokenizer.from_pretrained(transformers_model_path)

@@ -95,7 +95,7 @@ def train_epoch(epoch, wandb):
 
         if (step + 1) % args.save_interval == 0 and (not ddp or dist.get_rank() == 0):
             model.eval()    # 将模型设置为评估模式
-            lora_save_path = f'{args.save_dir}/lora/{args.lora_name}_{lm_config.hidden_size}.pth'
+            lora_save_path = f'{args.save_dir}/lora/{args.lora_name}_{lm_config.hidden_size}_{lm_config.num_hidden_layers}.pth'
             os.makedirs(os.path.dirname(lora_save_path), exist_ok=True)
             # 【区别1】只保存lora权重即可
             save_lora(model, lora_save_path)
@@ -106,7 +106,7 @@ def init_model(lm_config):
     tokenizer = AutoTokenizer.from_pretrained('../model/')
     model = MiniMindForCausalLM(lm_config)
     moe_path = '_moe' if lm_config.use_moe else ''
-    ckp = f'{args.save_dir}/full_sft_{lm_config.hidden_size}{moe_path}.pth'
+    ckp = f'{args.save_dir}/full_sft_{lm_config.hidden_size}_{lm_config.num_hidden_layers}{moe_path}.pth'
     state_dict = torch.load(ckp, map_location=args.device)
     model.load_state_dict(state_dict, strict=False)
     return model.to(args.device), tokenizer
